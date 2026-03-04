@@ -48,16 +48,25 @@ streamlit run app_gestao_outside_dashboard.py
 
 O app será aberto em `http://localhost:8501`
 
+### Como usar
+
+1. **Faça upload do seu arquivo Excel** (botão no sidebar)
+2. O dashboard mostrará automaticamente suas métricas financeiras
+3. Use o seletor de horizonte (6, 12, 18 ou 24 meses) para ajustar projeções
+
 ### Arquivo de dados
 
-O dashboard espera um arquivo Excel (.xlsx) com as seguintes abas:
-- **CLIENTES**: ID do cliente, nome, etc
-- **CONTRATOS**: ID contrato, cliente_id, status_contrato, setup_valor, mrr_valor
-- **FATURAMENTO**: ID fatura, cliente_id, valor, competencia, data_pagamento
-- **PAGAMENTOS**: ID pagamento, fatura_id, valor_pago, data_pagamento
-- **PARAMETROS**: chave, valor (ex: chave="margem_liquida_padrao", valor=0.45)
+Prepare um arquivo Excel (.xlsx) com as seguintes abas:
 
-Por padrão, o app carrega `controle_clientes_preenchido_com_recebidos.xlsx` se nenhum arquivo for upload.
+| Aba | Colunas obrigatórias | Descrição |
+|-----|----------------------|-----------|
+| **CLIENTES** | `cliente_id`, `cliente` | IDs e nomes dos clientes |
+| **CONTRATOS** | `contrato_id`, `cliente_id`, `status_contrato`, `setup_valor`, `mrr_valor` | Dados dos contratos |
+| **FATURAMENTO** | `fatura_id`, `cliente_id`, `valor`, `competencia` | Faturas emitidas |
+| **PAGAMENTOS** | `pagamento_id`, `fatura_id`, `valor_pago` | Pagamentos recebidos |
+| **PARAMETROS** | `chave`, `valor` | Configurações (ex: `margem_liquida_padrao`) |
+
+**Dica:** Use o arquivo `exemplo_dados.xlsx` como template para sua base de dados.
 
 ## Publicar no Streamlit Community Cloud
 
@@ -84,3 +93,12 @@ Por padrão, o app carrega `controle_clientes_preenchido_com_recebidos.xlsx` se 
 ## Licença
 
 MIT
+
+---
+
+## ✅ Próximos passos para publicar no Streamlit Cloud
+
+Veja [INSTRUCOES_GITHUB.md](INSTRUCOES_GITHUB.md) para um passo a passo completo de como:
+1. Criar repositório no GitHub
+2. Fazer push do código
+3. Publicar no Streamlit Community Cloud
