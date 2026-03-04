@@ -14,7 +14,6 @@ try:
 except Exception:
     px = None
 
-DEFAULT_FILE = "controle_clientes_preenchido_com_recebidos.xlsx"
 ACCENT = "#FF9400"
 LOGO_PATH = "logogo.jpg"  # coloque seu arquivo de logo com esse nome na mesma pasta do app
 
@@ -354,18 +353,40 @@ st.sidebar.markdown(
 st.sidebar.write("")
 
 uploaded = st.sidebar.file_uploader(
-    "Base de dados (xlsx)",
+    "📊 Base de dados (xlsx)",
     type=["xlsx"],
-    help="Envie seu arquivo ou deixe vazio para usar controle_clientes_preenchido.xlsx no mesmo diretório.",
+    help="Envie seu arquivo Excel com as abas: CLIENTES, CONTRATOS, FATURAMENTO, PAGAMENTOS, PARAMETROS",
 )
-file_source = uploaded if uploaded is not None else DEFAULT_FILE
 
 horizon = st.sidebar.selectbox("Horizonte de projeção (meses)", [6, 12, 18, 24], index=1)
 
 # =========================
+# VALIDAÇÃO: ARQUIVO OBRIGATÓRIO
+# =========================
+if uploaded is None:
+    st.warning("⚠️ Nenhum arquivo selecionado")
+    st.info(
+        """
+        ### Como usar este dashboard:
+        
+        1. **Prepare seu arquivo Excel** com as seguintes abas:
+           - `CLIENTES`: ID e nome dos clientes
+           - `CONTRATOS`: Contrato, cliente, status, setup, MRR
+           - `FATURAMENTO`: Fatura, cliente, valor, competência
+           - `PAGAMENTOS`: Pagamento, fatura, valor pago
+           - `PARAMETROS`: Configurações (ex: margem_liquida_padrao=0.45)
+        
+        2. **Faça upload** usando o botão acima
+        
+        3. Visualize suas métricas financeiras em tempo real!
+        """
+    )
+    st.stop()
+
+# =========================
 # DADOS + MÉTRICAS (GERAL)
 # =========================
-clientes, contratos, faturamento, pagamentos, params = load_data(file_source)
+clientes, contratos, faturamento, pagamentos, params = load_data(uploaded)
 margem = get_param_margem(params, default=0.45)
 
 fat = compute_received(faturamento, pagamentos)
@@ -587,4 +608,4 @@ st.dataframe(
     hide_index=True,
 )
 
-st.caption("Logo: coloque o arquivo logo_gestao_outside.png na mesma pasta do app. Projeções usam ticket médio dos contratos ativos (setup médio e MRR médio).")
+st.caption("Logo: coloque o arquivo logogo.jpg na mesma pasta do app. Projeções usam ticket médio dos contratos ativos (setup médio e MRR médio).")

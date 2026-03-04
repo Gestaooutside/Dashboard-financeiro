@@ -17,6 +17,6 @@ __pycache__/
 *~
 .DS_Store
 
-# Data files (opcional - remova se quiser versionar os dados)
+# Data files (removido exemplo_dados.xlsx para que possa ser usado como template)
 controle_clientes_preenchido.xlsx
 controle_clientes_preenchido_com_recebidos.xlsx
