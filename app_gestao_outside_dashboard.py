@@ -705,15 +705,28 @@ resumo_cliente = (
 resumo_cliente["em_aberto"] = resumo_cliente["total_previsto"] - resumo_cliente["total_recebido"]
 resumo_cliente = resumo_cliente.sort_values("total_previsto", ascending=False)
 
+# Adicionar MRR (pagamento mensal) por cliente
+if not ativos.empty:
+    mrr_por_cliente = (
+        ativos.groupby(["cliente_id"], as_index=False)
+        .agg(mrr_mensal=("mrr_valor", "sum"))
+    )
+    resumo_cliente = resumo_cliente.merge(mrr_por_cliente, on="cliente_id", how="left")
+    resumo_cliente["mrr_mensal"] = resumo_cliente["mrr_mensal"].fillna(0.0)
+else:
+    resumo_cliente["mrr_mensal"] = 0.0
+
 resumo_cliente_view = resumo_cliente.copy()
 resumo_cliente_view["total_previsto"] = resumo_cliente_view["total_previsto"].apply(brl)
 resumo_cliente_view["total_recebido"] = resumo_cliente_view["total_recebido"].apply(brl)
 resumo_cliente_view["em_aberto"] = resumo_cliente_view["em_aberto"].apply(lambda x: brl(max(0.0, x)))
+resumo_cliente_view["mrr_mensal"] = resumo_cliente_view["mrr_mensal"].apply(brl)
 
 st.dataframe(
-    resumo_cliente_view[["cliente", "total_previsto", "total_recebido", "em_aberto"]].rename(
+    resumo_cliente_view[["cliente", "mrr_mensal", "total_previsto", "total_recebido", "em_aberto"]].rename(
         columns={
             "cliente": "Cliente",
+            "mrr_mensal": "Pagamento mensal (MRR)",
             "total_previsto": "Previsto (total lançado)",
             "total_recebido": "Recebido",
             "em_aberto": "Em aberto",
