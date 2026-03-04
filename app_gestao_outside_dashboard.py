@@ -1,7 +1,13 @@
 # app_gestao_outside_dashboard.py
 # Dashboard Gestão Outside (Streamlit)
-# Visual: fundo preto absoluto, cartões premium, detalhes em branco e laranja #FF9400
-# Inclui: logo no topo + previsões (pior 1 cliente/mês, melhor 3 clientes/mês)
+# Visual: fundo preto, detalhes em branco e laranja #FF9400
+# Inclui:
+# - Logo no topo
+# - KPIs gerais e do mês
+# - Gráfico Faturado vs Recebido
+# - Previsões de faturamento (pior 1 cliente/mês, melhor 3 clientes/mês)
+# - NOVO: tabela de MRR por cliente (quanto cada cliente paga de mensalidade)
+# - NOVO: previsão de MRR para próximos meses (cenários 1 e 3 clientes/mês)
 
 import os
 import streamlit as st
@@ -14,8 +20,9 @@ try:
 except Exception:
     px = None
 
+DEFAULT_FILE = "controle_clientes_preenchido.xlsx"
 ACCENT = "#FF9400"
-LOGO_PATH = "logogo.jpg"  # coloque seu arquivo de logo com esse nome na mesma pasta do app
+LOGO_PATH = "logogo.jpg"  # coloque esse arquivo na mesma pasta do app
 
 st.set_page_config(
     page_title="Gestão Outside | Dashboard",
@@ -23,9 +30,6 @@ st.set_page_config(
     layout="wide",
 )
 
-# =========================
-# ESTILO PREMIUM (PRETO + LARANJA)
-# =========================
 CSS = f"""
 <style>
 :root {{
@@ -70,6 +74,12 @@ div[data-testid="stToolbar"] {{
 h1, h2, h3, h4 {{
   color: var(--text) !important;
   letter-spacing: -0.02em;
+}}
+
+.small-muted {{
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.6;
 }}
 
 .hr {{
@@ -142,7 +152,7 @@ a, a:visited {{
   color: var(--accent) !important;
 }}
 
-/* ===== PATCH: inputs sem azul (FOCO / SELECT / UPLOADER / BUTTON) ===== */
+/* PATCH: inputs sem azul (FOCO / SELECT / UPLOADER / BUTTON) */
 *:focus {{ outline: none !important; box-shadow: none !important; }}
 *:focus-visible {{ outline: none !important; box-shadow: none !important; }}
 
@@ -178,14 +188,13 @@ div[data-testid="stFileUploader"] section:hover {{
 div[data-baseweb="select"] * {{
   box-shadow: none !important;
 }}
-
 </style>
 """
 st.markdown(CSS, unsafe_allow_html=True)
 
-# =========================
-# FUNÇÕES
-# =========================
+# -------------------------
+# Funções
+# -------------------------
 def brl(v: float) -> str:
     if pd.isna(v):
         v = 0.0
@@ -208,20 +217,15 @@ def month_label(d: date) -> str:
 def parse_competencia_to_date(x):
     if pd.isna(x):
         return None
-
     if isinstance(x, (datetime, date)):
         d = x.date() if isinstance(x, datetime) else x
         return month_start(d)
-
     s = str(x).strip()
-
-    # tenta YYYY-MM
     try:
         dt = pd.to_datetime(s, format="%Y-%m", errors="raise")
         return date(int(dt.year), int(dt.month), 1)
     except Exception:
         pass
-
     dt = pd.to_datetime(s, errors="coerce")
     if pd.isna(dt):
         return None
@@ -237,7 +241,6 @@ def load_data(file_obj):
     pagamentos = pd.read_excel(xls, "PAGAMENTOS")
     params = pd.read_excel(xls, "PARAMETROS")
 
-    # limpa linhas vazias
     if "cliente_id" in clientes.columns:
         clientes = clientes.dropna(subset=["cliente_id"])
     if "contrato_id" in contratos.columns and "cliente_id" in contratos.columns:
@@ -247,7 +250,6 @@ def load_data(file_obj):
     if "pagamento_id" in pagamentos.columns and "fatura_id" in pagamentos.columns:
         pagamentos = pagamentos.dropna(subset=["pagamento_id", "fatura_id"], how="any")
 
-    # datas
     if "data_inicio" in contratos.columns:
         contratos["data_inicio"] = pd.to_datetime(contratos["data_inicio"], errors="coerce").dt.date
     if "data_fim" in contratos.columns:
@@ -259,13 +261,11 @@ def load_data(file_obj):
     if "data_pagamento" in pagamentos.columns:
         pagamentos["data_pagamento"] = pd.to_datetime(pagamentos["data_pagamento"], errors="coerce").dt.date
 
-    # competência
     if "competencia" in faturamento.columns:
         faturamento["competencia_mes"] = faturamento["competencia"].apply(parse_competencia_to_date)
     else:
         faturamento["competencia_mes"] = None
 
-    # numéricos
     faturamento["valor"] = pd.to_numeric(faturamento.get("valor", 0), errors="coerce").fillna(0.0)
     pagamentos["valor_pago"] = pd.to_numeric(pagamentos.get("valor_pago", 0), errors="coerce").fillna(0.0)
 
@@ -308,7 +308,7 @@ def get_param_margem(params_df: pd.DataFrame, default: float = 0.45) -> float:
     except Exception:
         return default
 
-def expected_revenue_projection(
+def expected_faturamento_projection(
     contratos_df: pd.DataFrame,
     start_month: date,
     months: int,
@@ -317,7 +317,6 @@ def expected_revenue_projection(
     new_clients_per_month: int
 ) -> pd.DataFrame:
     con = contratos_df.copy()
-
     if "status_contrato" in con.columns:
         con["status_norm"] = con["status_contrato"].apply(safe_lower)
         active_mask = con["status_norm"].isin(["ativo", "ativa", "active"])
@@ -342,9 +341,25 @@ def expected_revenue_projection(
 
     return pd.DataFrame(rows)
 
-# =========================
-# SIDEBAR (SIMPLES)
-# =========================
+def expected_mrr_projection(
+    baseline_mrr: float,
+    start_month: date,
+    months: int,
+    avg_mrr: float,
+    new_clients_per_month: int
+) -> pd.DataFrame:
+    rows = []
+    current_new_clients = 0
+    for i in range(months):
+        m = add_months(start_month, i)
+        current_new_clients += new_clients_per_month
+        mrr = float(baseline_mrr) + (current_new_clients * float(avg_mrr))
+        rows.append({"mes": m, "mrr_projetado": mrr, "mes_label": month_label(m)})
+    return pd.DataFrame(rows)
+
+# -------------------------
+# Sidebar
+# -------------------------
 st.sidebar.markdown("### Gestão Outside")
 st.sidebar.markdown(
     f"<span class='badge'><span class='badge-dot'></span> Tema <strong class='orange'>{ACCENT}</strong></span>",
@@ -353,66 +368,27 @@ st.sidebar.markdown(
 st.sidebar.write("")
 
 uploaded = st.sidebar.file_uploader(
-    "📊 Base de dados (xlsx)",
+    "Base de dados (xlsx)",
     type=["xlsx"],
-    help="Envie seu arquivo Excel com as abas: CLIENTES, CONTRATOS, FATURAMENTO, PAGAMENTOS, PARAMETROS",
+    help="Envie seu arquivo ou deixe vazio para usar controle_clientes_preenchido.xlsx no mesmo diretório.",
 )
+file_source = uploaded if uploaded is not None else DEFAULT_FILE
 
 horizon = st.sidebar.selectbox("Horizonte de projeção (meses)", [6, 12, 18, 24], index=1)
 
-# =========================
-# SELECIONAR ARQUIVO (PADRÃO OU UPLOAD)
-# =========================
-if uploaded is not None:
-    file_source = uploaded
-    usando_exemplo = False
-else:
-    # Tenta usar arquivo de dados principal
-    try:
-        file_source = "controle_clientes_preenchido_com_recebidos.xlsx"
-        # Verifica se o arquivo existe
-        with open(file_source, 'rb'):
-            usando_exemplo = False
-    except FileNotFoundError:
-        # Se não encontrar o principal, tenta o de exemplo
-        try:
-            file_source = "exemplo_dados.xlsx"
-            with open(file_source, 'rb'):
-                usando_exemplo = True
-        except FileNotFoundError:
-            st.warning("⚠️ Nenhum arquivo encontrado")
-            st.info(
-                """
-                ### Como usar este dashboard:
-                
-                1. **Prepare seu arquivo Excel** com as seguintes abas:
-                   - `CLIENTES`: ID e nome dos clientes
-                   - `CONTRATOS`: Contrato, cliente, status, setup, MRR
-                   - `FATURAMENTO`: Fatura, cliente, valor, competência
-                   - `PAGAMENTOS`: Pagamento, fatura, valor pago
-                   - `PARAMETROS`: Configurações (ex: margem_liquida_padrao=0.45)
-                
-                2. **Faça upload** usando o botão acima
-                
-                3. Visualize suas métricas financeiras em tempo real!
-                """
-            )
-            st.stop()
-
-if usando_exemplo:
-    st.sidebar.info("📌 Usando dados de exemplo. Faça upload para visualizar seus dados!")
-
-# =========================
-# DADOS + MÉTRICAS (GERAL)
-# =========================
+# -------------------------
+# Dados
+# -------------------------
 clientes, contratos, faturamento, pagamentos, params = load_data(file_source)
 margem = get_param_margem(params, default=0.45)
-
 fat = compute_received(faturamento, pagamentos)
 
 hoje = date.today()
 mes_atual = month_start(hoje)
 
+# -------------------------
+# Métricas (geral)
+# -------------------------
 total_recebido = float(fat["recebido_calc"].sum())
 total_previsto_receber = float(fat["valor"].sum())
 total_em_aberto = max(0.0, total_previsto_receber - total_recebido)
@@ -420,7 +396,10 @@ total_em_aberto = max(0.0, total_previsto_receber - total_recebido)
 contratos["status_norm"] = contratos["status_contrato"].apply(safe_lower) if "status_contrato" in contratos.columns else ""
 ativos = contratos[contratos["status_norm"].isin(["ativo", "ativa", "active"])].copy()
 ativos["mrr_valor"] = pd.to_numeric(ativos.get("mrr_valor", 0), errors="coerce").fillna(0.0)
-mrr_total = float(ativos["mrr_valor"].sum())
+ativos["setup_valor"] = pd.to_numeric(ativos.get("setup_valor", 0), errors="coerce").fillna(0.0)
+
+baseline_mrr = float(ativos["mrr_valor"].sum())
+mrr_total = baseline_mrr
 
 fat_mes = fat[fat["competencia_mes"] == mes_atual].copy()
 faturado_mes = float(fat_mes["valor"].sum())
@@ -432,7 +411,7 @@ lucro_previsto_total = total_previsto_receber * margem
 lucro_recebido_mes = recebido_mes * margem
 lucro_previsto_mes = faturado_mes * margem
 
-# séries mensais
+# série mensal
 serie = (
     fat.dropna(subset=["competencia_mes"])
     .groupby("competencia_mes", as_index=False)
@@ -441,17 +420,21 @@ serie = (
 )
 serie["mes_label"] = serie["competencia_mes"].apply(month_label)
 
+# tickets médios
+avg_setup = float(ativos["setup_valor"].mean()) if not ativos.empty else 0.0
+avg_mrr = float(ativos["mrr_valor"].mean()) if not ativos.empty else 0.0
+
 # projeções
-avg_setup = float(pd.to_numeric(ativos.get("setup_valor", 0), errors="coerce").fillna(0.0).mean()) if not ativos.empty else 0.0
-avg_mrr = float(pd.to_numeric(ativos.get("mrr_valor", 0), errors="coerce").fillna(0.0).mean()) if not ativos.empty else 0.0
 start_proj = add_months(mes_atual, 1)
+proj_pior_fat = expected_faturamento_projection(contratos, start_proj, horizon, avg_setup, avg_mrr, new_clients_per_month=1)
+proj_melhor_fat = expected_faturamento_projection(contratos, start_proj, horizon, avg_setup, avg_mrr, new_clients_per_month=3)
 
-proj_pior = expected_revenue_projection(contratos, start_proj, horizon, avg_setup, avg_mrr, new_clients_per_month=1)
-proj_melhor = expected_revenue_projection(contratos, start_proj, horizon, avg_setup, avg_mrr, new_clients_per_month=3)
+proj_pior_mrr = expected_mrr_projection(baseline_mrr, start_proj, horizon, avg_mrr, new_clients_per_month=1)
+proj_melhor_mrr = expected_mrr_projection(baseline_mrr, start_proj, horizon, avg_mrr, new_clients_per_month=3)
 
-# =========================
-# TOPO (LOGO + TÍTULO)
-# =========================
+# -------------------------
+# Topo (logo + título)
+# -------------------------
 top_left, top_right = st.columns([0.18, 0.82], vertical_alignment="center")
 
 with top_left:
@@ -480,9 +463,6 @@ with top_right:
 
 st.markdown("<div class='hr'></div>", unsafe_allow_html=True)
 
-# =========================
-# COMPONENTE DE CARD (HTML)
-# =========================
 def card(title: str, value: str, sub: str = ""):
     sub_html = f"<div class='metric-sub'>{sub}</div>" if sub else ""
     return f"""
@@ -493,9 +473,9 @@ def card(title: str, value: str, sub: str = ""):
     </div>
     """
 
-# =========================
-# KPIs (GERAL)
-# =========================
+# -------------------------
+# KPIs (geral)
+# -------------------------
 r1 = st.columns(4)
 r1[0].markdown(card("Recebido até agora", brl(total_recebido)), unsafe_allow_html=True)
 r1[1].markdown(card("Previsto a receber (total lançado)", brl(total_previsto_receber), "Pago + em aberto, conforme FATURAMENTO"), unsafe_allow_html=True)
@@ -504,7 +484,7 @@ r1[3].markdown(card("MRR atual (soma das mensalidades)", brl(mrr_total)), unsafe
 
 st.markdown("<div class='hr'></div>", unsafe_allow_html=True)
 
-# KPIs (MÊS)
+# KPIs (mês)
 r2 = st.columns(4)
 r2[0].markdown(card(f"Faturado no mês ({month_label(mes_atual)})", brl(faturado_mes)), unsafe_allow_html=True)
 r2[1].markdown(card(f"Recebido no mês ({month_label(mes_atual)})", brl(recebido_mes)), unsafe_allow_html=True)
@@ -513,7 +493,7 @@ r2[3].markdown(card("Ticket médio (ativos)", f"{brl(avg_setup)} setup", f"{brl(
 
 st.markdown("<div class='hr'></div>", unsafe_allow_html=True)
 
-# KPIs (LUCRO)
+# KPIs (lucro)
 r3 = st.columns(4)
 r3[0].markdown(card("Lucro sobre recebido (total)", brl(lucro_recebido_total)), unsafe_allow_html=True)
 r3[1].markdown(card("Lucro sobre previsto (total)", brl(lucro_previsto_total)), unsafe_allow_html=True)
@@ -522,9 +502,50 @@ r3[3].markdown(card("Lucro sobre faturado (mês)", brl(lucro_previsto_mes)), uns
 
 st.markdown("<div class='hr'></div>", unsafe_allow_html=True)
 
-# =========================
-# GRÁFICOS (Faturado vs Recebido)
-# =========================
+# -------------------------
+# NOVO: MRR por cliente (mensalidade)
+# -------------------------
+st.subheader("Mensalidade por cliente (MRR)")
+
+if ativos.empty:
+    st.info("Não há contratos ativos para calcular MRR por cliente.")
+else:
+    # liga contrato ao nome do cliente
+    cli_map = clientes[["cliente_id", "cliente"]].copy() if "cliente_id" in clientes.columns and "cliente" in clientes.columns else None
+    mrr_cliente = ativos.copy()
+
+    if cli_map is not None:
+        mrr_cliente = mrr_cliente.merge(cli_map, on="cliente_id", how="left")
+    else:
+        mrr_cliente["cliente"] = mrr_cliente.get("cliente_id", "Cliente")
+
+    # soma MRR por cliente (caso tenha mais de 1 contrato ativo por cliente)
+    mrr_cliente = (
+        mrr_cliente.groupby(["cliente_id", "cliente"], as_index=False)
+        .agg(mrr=("mrr_valor", "sum"))
+        .sort_values("mrr", ascending=False)
+    )
+
+    # total (check)
+    st.markdown(
+        f"<span class='badge'><span class='badge-dot'></span> MRR total atual: <strong class='orange'>{brl(mrr_cliente['mrr'].sum())}</strong></span>",
+        unsafe_allow_html=True
+    )
+
+    view = mrr_cliente.copy()
+    view["mrr"] = view["mrr"].apply(brl)
+
+    st.dataframe(
+        view.rename(columns={"cliente": "Cliente", "mrr": "Mensalidade (MRR)"}),
+        use_container_width=True,
+        hide_index=True
+    )
+
+st.markdown("<div class='hr'></div>", unsafe_allow_html=True)
+
+# -------------------------
+# Gráficos: faturado vs recebido + previsões
+# -------------------------
 g1, g2 = st.columns(2)
 
 with g1:
@@ -533,7 +554,12 @@ with g1:
         st.info("Sem dados suficientes para montar a série mensal.")
     else:
         if px is not None:
-            df_long = serie.melt(id_vars=["competencia_mes", "mes_label"], value_vars=["faturado", "recebido"], var_name="tipo", value_name="valor")
+            df_long = serie.melt(
+                id_vars=["competencia_mes", "mes_label"],
+                value_vars=["faturado", "recebido"],
+                var_name="tipo",
+                value_name="valor"
+            )
             fig = px.line(df_long, x="competencia_mes", y="valor", color="tipo", markers=True)
             fig.update_layout(
                 paper_bgcolor="rgba(0,0,0,0)",
@@ -543,9 +569,11 @@ with g1:
                 xaxis_title="Competência",
                 yaxis_title="Valor",
             )
-            # deixa uma linha laranja e outra branca
-            fig.for_each_trace(lambda t: t.update(line=dict(color=ACCENT)) if t.name == "faturado" else t.update(line=dict(color="#F5F5F7")))
+            fig.for_each_trace(
+                lambda t: t.update(line=dict(color=ACCENT)) if t.name == "faturado" else t.update(line=dict(color="#F5F5F7"))
+            )
             st.plotly_chart(fig, use_container_width=True)
+
         st.dataframe(
             serie[["mes_label", "faturado", "recebido"]].rename(columns={"mes_label": "Mês", "faturado": "Faturado", "recebido": "Recebido"}),
             use_container_width=True,
@@ -560,12 +588,13 @@ with g2:
         f"<span class='badge'><span class='badge-dot'></span> Melhor hipótese: <strong class='orange'>+3 clientes/mês</strong></span>",
         unsafe_allow_html=True
     )
-    if px is not None and not proj_pior.empty and not proj_melhor.empty:
-        proj_pior2 = proj_pior.copy()
-        proj_pior2["cenario"] = "Pior (1 cliente/mês)"
-        proj_melhor2 = proj_melhor.copy()
-        proj_melhor2["cenario"] = "Melhor (3 clientes/mês)"
-        proj_all = pd.concat([proj_pior2, proj_melhor2], ignore_index=True)
+
+    if px is not None and not proj_pior_fat.empty and not proj_melhor_fat.empty:
+        a = proj_pior_fat.copy()
+        a["cenario"] = "Pior (1 cliente/mês)"
+        b = proj_melhor_fat.copy()
+        b["cenario"] = "Melhor (3 clientes/mês)"
+        proj_all = pd.concat([a, b], ignore_index=True)
 
         fig = px.line(proj_all, x="mes", y="faturamento_projetado", color="cenario", markers=True)
         fig.update_layout(
@@ -576,30 +605,88 @@ with g2:
             xaxis_title="Mês",
             yaxis_title="Faturamento projetado",
         )
-        fig.for_each_trace(lambda t: t.update(line=dict(color=ACCENT)) if "Pior" in t.name else t.update(line=dict(color="#F5F5F7")))
+        fig.for_each_trace(
+            lambda t: t.update(line=dict(color=ACCENT)) if "Pior" in t.name else t.update(line=dict(color="#F5F5F7"))
+        )
         st.plotly_chart(fig, use_container_width=True)
 
     pcol1, pcol2 = st.columns(2)
     with pcol1:
         st.caption("Pior hipótese (1 cliente/mês)")
         st.dataframe(
-            proj_pior[["mes_label", "faturamento_projetado"]].rename(columns={"mes_label": "Mês", "faturamento_projetado": "Faturamento projetado"}),
+            proj_pior_fat[["mes_label", "faturamento_projetado"]].rename(columns={"mes_label": "Mês", "faturamento_projetado": "Faturamento projetado"}),
             use_container_width=True,
             hide_index=True
         )
     with pcol2:
         st.caption("Melhor hipótese (3 clientes/mês)")
         st.dataframe(
-            proj_melhor[["mes_label", "faturamento_projetado"]].rename(columns={"mes_label": "Mês", "faturamento_projetado": "Faturamento projetado"}),
+            proj_melhor_fat[["mes_label", "faturamento_projetado"]].rename(columns={"mes_label": "Mês", "faturamento_projetado": "Faturamento projetado"}),
             use_container_width=True,
             hide_index=True
         )
 
 st.markdown("<div class='hr'></div>", unsafe_allow_html=True)
 
-# =========================
-# RESUMO POR CLIENTE (GERAL)
-# =========================
+# -------------------------
+# NOVO: Previsão de MRR (próximos meses)
+# -------------------------
+st.subheader("Previsão de MRR (próximos meses)")
+st.caption("Aqui é só mensalidade, sem setup. Baseline é o MRR atual dos contratos ativos + crescimento por novos clientes.")
+
+mrr1, mrr2 = st.columns(2)
+
+with mrr1:
+    st.markdown(
+        f"<span class='badge'><span class='badge-dot'></span> Pior hipótese: <strong class='orange'>+1 cliente/mês</strong></span>",
+        unsafe_allow_html=True
+    )
+    if px is not None and not proj_pior_mrr.empty:
+        fig = px.line(proj_pior_mrr, x="mes", y="mrr_projetado", markers=True)
+        fig.update_layout(
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            font_color="#F5F5F7",
+            xaxis_title="Mês",
+            yaxis_title="MRR projetado",
+        )
+        fig.update_traces(line=dict(color=ACCENT))
+        st.plotly_chart(fig, use_container_width=True)
+
+    st.dataframe(
+        proj_pior_mrr[["mes_label", "mrr_projetado"]].rename(columns={"mes_label": "Mês", "mrr_projetado": "MRR projetado"}),
+        use_container_width=True,
+        hide_index=True
+    )
+
+with mrr2:
+    st.markdown(
+        f"<span class='badge'><span class='badge-dot'></span> Melhor hipótese: <strong class='orange'>+3 clientes/mês</strong></span>",
+        unsafe_allow_html=True
+    )
+    if px is not None and not proj_melhor_mrr.empty:
+        fig = px.line(proj_melhor_mrr, x="mes", y="mrr_projetado", markers=True)
+        fig.update_layout(
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            font_color="#F5F5F7",
+            xaxis_title="Mês",
+            yaxis_title="MRR projetado",
+        )
+        fig.update_traces(line=dict(color="#F5F5F7"))
+        st.plotly_chart(fig, use_container_width=True)
+
+    st.dataframe(
+        proj_melhor_mrr[["mes_label", "mrr_projetado"]].rename(columns={"mes_label": "Mês", "mrr_projetado": "MRR projetado"}),
+        use_container_width=True,
+        hide_index=True
+    )
+
+st.markdown("<div class='hr'></div>", unsafe_allow_html=True)
+
+# -------------------------
+# Resumo por cliente (geral)
+# -------------------------
 st.subheader("Resumo por cliente (geral)")
 fat_cli = fat.merge(clientes[["cliente_id", "cliente"]], on="cliente_id", how="left")
 resumo_cliente = (
@@ -627,4 +714,7 @@ st.dataframe(
     hide_index=True,
 )
 
-st.caption("Logo: coloque o arquivo logogo.jpg na mesma pasta do app. Projeções usam ticket médio dos contratos ativos (setup médio e MRR médio).")
+st.caption(
+    "Mensalidade por cliente vem de CONTRATOS (mrr_valor) filtrando contratos ativos. "
+    "A previsão de MRR usa o MRR médio dos ativos e soma novos clientes por mês."
+)
