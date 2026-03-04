@@ -2,7 +2,7 @@
 
 Dashboard interativo para visualização e análise de dados financeiros, construído com Streamlit.
 
-**⚡ Quick Start**: Abra, veja dados de exemplo já funcionando, faça upload de seus dados quando quiser!
+**⚡ Quick Start**: Abra, veja seus dados reais funcionando, faça upload quando quiser atualizar!
 
 ## Características
 
@@ -52,12 +52,14 @@ O app será aberto em `http://localhost:8501`
 
 ### Como usar
 
-1. **Abra o app** - Ele já começa com dados de exemplo automaticamente 🎉
-2. **Visualize as métricas** - Veja todos os gráficos e KPIs funcionando
-3. **Faça upload** (opcional) - Use o botão no sidebar para visualizar seus próprios dados
-4. **Ajuste projeções** - Use o seletor de horizonte (6, 12, 18 ou 24 meses)
+1. **O app carrega seus dados automaticamente** - `controle_clientes_preenchido_com_recebidos.xlsx`
+2. **Visualize todas as métricas** - Gráficos, KPIs e projeções em tempo real
+3. **Faça upload** (opcional) - Use o botão no sidebar para carregar diferentes arquivos
+4. **Ajuste projeções** - Selecione o horizonte (6, 12, 18 ou 24 meses)
 
 ### Arquivo de dados
+
+O dashboard carrega automaticamente `controle_clientes_preenchido_com_recebidos.xlsx`. 
 
 Para usar seus próprios dados, prepare um arquivo Excel (.xlsx) com as seguintes abas:
 
@@ -69,7 +71,7 @@ Para usar seus próprios dados, prepare um arquivo Excel (.xlsx) com as seguinte
 | **PAGAMENTOS** | `pagamento_id`, `fatura_id`, `valor_pago` | Pagamentos recebidos |
 | **PARAMETROS** | `chave`, `valor` | Configurações (ex: `margem_liquida_padrao`) |
 
-**Dica:** O arquivo `exemplo_dados.xlsx` está incluído e é carregado automaticamente. Use como template para suas próprias dados.
+Depois faça upload via sidebar para visualizar seus dados.
 
 ## Publicar no Streamlit Community Cloud
 
