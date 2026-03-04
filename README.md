@@ -2,6 +2,8 @@
 
 Dashboard interativo para visualização e análise de dados financeiros, construído com Streamlit.
 
+**⚡ Quick Start**: Abra, veja dados de exemplo já funcionando, faça upload de seus dados quando quiser!
+
 ## Características
 
 - 📊 Visualização de faturamento vs recebimentos (mensal)
@@ -50,13 +52,14 @@ O app será aberto em `http://localhost:8501`
 
 ### Como usar
 
-1. **Faça upload do seu arquivo Excel** (botão no sidebar)
-2. O dashboard mostrará automaticamente suas métricas financeiras
-3. Use o seletor de horizonte (6, 12, 18 ou 24 meses) para ajustar projeções
+1. **Abra o app** - Ele já começa com dados de exemplo automaticamente 🎉
+2. **Visualize as métricas** - Veja todos os gráficos e KPIs funcionando
+3. **Faça upload** (opcional) - Use o botão no sidebar para visualizar seus próprios dados
+4. **Ajuste projeções** - Use o seletor de horizonte (6, 12, 18 ou 24 meses)
 
 ### Arquivo de dados
 
-Prepare um arquivo Excel (.xlsx) com as seguintes abas:
+Para usar seus próprios dados, prepare um arquivo Excel (.xlsx) com as seguintes abas:
 
 | Aba | Colunas obrigatórias | Descrição |
 |-----|----------------------|-----------|
@@ -66,7 +69,7 @@ Prepare um arquivo Excel (.xlsx) com as seguintes abas:
 | **PAGAMENTOS** | `pagamento_id`, `fatura_id`, `valor_pago` | Pagamentos recebidos |
 | **PARAMETROS** | `chave`, `valor` | Configurações (ex: `margem_liquida_padrao`) |
 
-**Dica:** Use o arquivo `exemplo_dados.xlsx` como template para sua base de dados.
+**Dica:** O arquivo `exemplo_dados.xlsx` está incluído e é carregado automaticamente. Use como template para suas próprias dados.
 
 ## Publicar no Streamlit Community Cloud
 
