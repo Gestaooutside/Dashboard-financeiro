@@ -233,6 +233,15 @@ def parse_competencia_to_date(x):
 
 @st.cache_data(show_spinner=False)
 def load_data(file_obj):
+    # Handle string file paths (from DEFAULT_FILE) by opening them
+    if isinstance(file_obj, str):
+        try:
+            file_obj = open(file_obj, 'rb')
+        except FileNotFoundError:
+            st.error(f"❌ Arquivo não encontrado: {file_obj}")
+            st.info("Por favor, envie um arquivo Excel através do uploader.")
+            st.stop()
+    
     xls = pd.ExcelFile(file_obj)
 
     clientes = pd.read_excel(xls, "CLIENTES")

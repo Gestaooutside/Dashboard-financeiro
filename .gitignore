@@ -17,5 +17,5 @@ __pycache__/
 *~
 .DS_Store
 
-# Data files (removido para que arquivos principais sejam versionados)
-controle_clientes_preenchido.xlsx
+# Data files
+# controle_clientes_preenchido.xlsx  # Uncomment to ignore data files
