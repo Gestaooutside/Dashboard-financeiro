@@ -361,32 +361,45 @@ uploaded = st.sidebar.file_uploader(
 horizon = st.sidebar.selectbox("Horizonte de projeção (meses)", [6, 12, 18, 24], index=1)
 
 # =========================
-# VALIDAÇÃO: ARQUIVO OBRIGATÓRIO
+# SELECIONAR ARQUIVO (PADRÃO OU UPLOAD)
 # =========================
-if uploaded is None:
-    st.warning("⚠️ Nenhum arquivo selecionado")
-    st.info(
-        """
-        ### Como usar este dashboard:
-        
-        1. **Prepare seu arquivo Excel** com as seguintes abas:
-           - `CLIENTES`: ID e nome dos clientes
-           - `CONTRATOS`: Contrato, cliente, status, setup, MRR
-           - `FATURAMENTO`: Fatura, cliente, valor, competência
-           - `PAGAMENTOS`: Pagamento, fatura, valor pago
-           - `PARAMETROS`: Configurações (ex: margem_liquida_padrao=0.45)
-        
-        2. **Faça upload** usando o botão acima
-        
-        3. Visualize suas métricas financeiras em tempo real!
-        """
-    )
-    st.stop()
+if uploaded is not None:
+    file_source = uploaded
+    usando_exemplo = False
+else:
+    # Tenta usar arquivo de exemplo
+    try:
+        file_source = "exemplo_dados.xlsx"
+        # Verifica se o arquivo existe
+        with open(file_source, 'rb'):
+            usando_exemplo = True
+    except FileNotFoundError:
+        st.warning("⚠️ Nenhum arquivo selecionado")
+        st.info(
+            """
+            ### Como usar este dashboard:
+            
+            1. **Prepare seu arquivo Excel** com as seguintes abas:
+               - `CLIENTES`: ID e nome dos clientes
+               - `CONTRATOS`: Contrato, cliente, status, setup, MRR
+               - `FATURAMENTO`: Fatura, cliente, valor, competência
+               - `PAGAMENTOS`: Pagamento, fatura, valor pago
+               - `PARAMETROS`: Configurações (ex: margem_liquida_padrao=0.45)
+            
+            2. **Faça upload** usando o botão acima
+            
+            3. Visualize suas métricas financeiras em tempo real!
+            """
+        )
+        st.stop()
+
+if usando_exemplo:
+    st.sidebar.info("📌 Usando dados de exemplo. Faça upload para visualizar seus dados!")
 
 # =========================
 # DADOS + MÉTRICAS (GERAL)
 # =========================
-clientes, contratos, faturamento, pagamentos, params = load_data(uploaded)
+clientes, contratos, faturamento, pagamentos, params = load_data(file_source)
 margem = get_param_margem(params, default=0.45)
 
 fat = compute_received(faturamento, pagamentos)
