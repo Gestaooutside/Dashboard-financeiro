@@ -1,0 +1,22 @@
+# Environment
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Streamlit
+.streamlit/secrets.toml
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Data files (opcional - remova se quiser versionar os dados)
+controle_clientes_preenchido.xlsx
+controle_clientes_preenchido_com_recebidos.xlsx
