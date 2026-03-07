@@ -20,13 +20,13 @@ try:
 except Exception:
     px = None
 
-DEFAULT_FILE = "controle_clientes_preenchido.xlsx"
+DEFAULT_FILE = "controle_clientes_preenchido_com_recebidos_v2.xlsx"
 ACCENT = "#FF9400"
 LOGO_PATH = "logogo.jpg"  # coloque esse arquivo na mesma pasta do app
 
 st.set_page_config(
     page_title="Gestão Outside | Dashboard",
-    page_icon="�",
+    page_icon="💲",
     layout="wide",
 )
 
