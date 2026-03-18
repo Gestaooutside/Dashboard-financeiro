@@ -429,7 +429,7 @@ ativos["setup_valor"] = pd.to_numeric(ativos.get("setup_valor", 0), errors="coer
 
 baseline_mrr = float(ativos["mrr_valor"].sum())
 mrr_total = baseline_mrr
-current_annual_faturamento = baseline_mrr * 12.0
+current_annual_faturamento = total_previsto_receber  # faturamento anual atual total baseado em FATURAMENTO (R$ 1.054.928,16 na base de exemplo)
 
 fat_mes = fat[fat["competencia_mes"] == mes_atual].copy()
 faturado_mes = float(fat_mes["valor"].sum())
