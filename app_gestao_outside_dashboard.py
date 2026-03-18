@@ -525,6 +525,9 @@ r1[1].markdown(card("Previsto a receber (total lançado)", brl(total_previsto_re
 r1[2].markdown(card("Em aberto (a receber)", brl(total_em_aberto)), unsafe_allow_html=True)
 r1[3].markdown(card("MRR atual (soma das mensalidades)", brl(mrr_total)), unsafe_allow_html=True)
 
+r1b = st.columns(1)
+r1b[0].markdown(card("Faturamento anual atual (MRR x 12)", brl(current_annual_faturamento)), unsafe_allow_html=True)
+
 st.markdown("<div class='hr'></div>", unsafe_allow_html=True)
 
 # KPIs (mês)
