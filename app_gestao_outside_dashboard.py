@@ -429,6 +429,7 @@ ativos["setup_valor"] = pd.to_numeric(ativos.get("setup_valor", 0), errors="coer
 
 baseline_mrr = float(ativos["mrr_valor"].sum())
 mrr_total = baseline_mrr
+current_annual_faturamento = baseline_mrr * 12.0
 
 fat_mes = fat[fat["competencia_mes"] == mes_atual].copy()
 faturado_mes = float(fat_mes["valor"].sum())
@@ -818,6 +819,12 @@ st.write(
 )
 
 df_annual = pd.DataFrame([
+    {
+        "Cenário": "Atual (sem mudança)",
+        "Clientes novos em 12 meses": 0,
+        "Incremento anual (R$)": 0.0,
+        "Faturamento anual projetado (R$)": current_annual_faturamento,
+    },
     {
         "Cenário": "Pior (1 cliente/mês)",
         "Clientes novos em 12 meses": annual_pior["novos_clientes"],
