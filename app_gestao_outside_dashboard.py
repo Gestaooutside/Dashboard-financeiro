@@ -24,7 +24,7 @@ DEFAULT_FILE = "controle_clientes_preenchido_com_recebidos_v4.xlsx"
 ACCENT = "#FF9400"
 LOGO_PATH = "logogo.jpg"  # coloque esse arquivo na mesma pasta do app
 
-st.set_page_config,
+st.set_page_config(
     page_title="Gestão Outside | Dashboard",
     page_icon="💲",
     layout="wide",
@@ -705,6 +705,42 @@ resumo_cliente = (
 resumo_cliente["em_aberto"] = resumo_cliente["total_previsto"] - resumo_cliente["total_recebido"]
 resumo_cliente = resumo_cliente.sort_values("total_previsto", ascending=False)
 
+# Adicionar plano aderido por cliente
+plan_col = None
+plan_source = None
+for c in ["plano", "plano_contrato", "nome_plano", "plano_cliente"]:
+    if c in contratos.columns:
+        plan_col = c
+        plan_source = "contratos"
+        break
+if plan_col is None:
+    for c in ["plano", "plano_cliente", "nome_plano"]:
+        if c in clientes.columns:
+            plan_col = c
+            plan_source = "clientes"
+            break
+
+if plan_col is not None:
+    if plan_source == "contratos":
+        plan_por_cliente = (
+            contratos[["cliente_id", plan_col]]
+            .dropna(subset=[plan_col])
+            .copy()
+            .drop_duplicates(subset=["cliente_id"], keep="last")
+        )
+    else:
+        plan_por_cliente = (
+            clientes[["cliente_id", plan_col]]
+            .dropna(subset=[plan_col])
+            .copy()
+            .drop_duplicates(subset=["cliente_id"], keep="last")
+        )
+    plan_por_cliente = plan_por_cliente.rename(columns={plan_col: "plano_aderido"})
+    resumo_cliente = resumo_cliente.merge(plan_por_cliente, on="cliente_id", how="left")
+    resumo_cliente["plano_aderido"] = resumo_cliente["plano_aderido"].fillna("Não informado")
+else:
+    resumo_cliente["plano_aderido"] = "Não informado"
+
 # Adicionar MRR (pagamento mensal) por cliente
 if not ativos.empty:
     mrr_por_cliente = (
@@ -723,9 +759,10 @@ resumo_cliente_view["em_aberto"] = resumo_cliente_view["em_aberto"].apply(lambda
 resumo_cliente_view["mrr_mensal"] = resumo_cliente_view["mrr_mensal"].apply(brl)
 
 st.dataframe(
-    resumo_cliente_view[["cliente", "mrr_mensal", "total_previsto", "total_recebido", "em_aberto"]].rename(
+    resumo_cliente_view[["cliente", "plano_aderido", "mrr_mensal", "total_previsto", "total_recebido", "em_aberto"]].rename(
         columns={
             "cliente": "Cliente",
+            "plano_aderido": "Plano aderido",
             "mrr_mensal": "Pagamento mensal (MRR)",
             "total_previsto": "Previsto (total lançado)",
             "total_recebido": "Recebido",
