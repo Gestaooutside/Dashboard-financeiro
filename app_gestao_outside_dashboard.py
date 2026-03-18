@@ -24,6 +24,8 @@ DEFAULT_FILE = "controle_clientes_preenchido_com_recebidos_v4.xlsx"
 ACCENT = "#FF9400"
 LOGO_PATH = "logogo.jpg"  # coloque esse arquivo na mesma pasta do app
 
+GESTAO_OUTSIDE_PLANO_ANUAL = 146000.0  # valor anual por cliente do plano Gestão outside
+
 st.set_page_config(
     page_title="Gestão Outside | Dashboard",
     page_icon="💲",
@@ -366,6 +368,24 @@ def expected_mrr_projection(
         rows.append({"mes": m, "mrr_projetado": mrr, "mes_label": month_label(m)})
     return pd.DataFrame(rows)
 
+
+def expected_annual_faturamento_with_plano(
+    baseline_mrr: float,
+    months: int,
+    valor_plano_anual: float,
+    new_clients_per_month: int
+) -> dict:
+    baseline_annual = float(baseline_mrr) * 12.0
+    novos_clientes = new_clients_per_month * months
+    incremento_anual = novos_clientes * float(valor_plano_anual)
+    total_annual = baseline_annual + incremento_anual
+    return {
+        "baseline_annual": baseline_annual,
+        "novos_clientes": novos_clientes,
+        "incremento_anual": incremento_anual,
+        "total_annual": total_annual,
+    }
+
 # -------------------------
 # Sidebar
 # -------------------------
@@ -440,6 +460,19 @@ proj_melhor_fat = expected_faturamento_projection(contratos, start_proj, horizon
 
 proj_pior_mrr = expected_mrr_projection(baseline_mrr, start_proj, horizon, avg_mrr, new_clients_per_month=1)
 proj_melhor_mrr = expected_mrr_projection(baseline_mrr, start_proj, horizon, avg_mrr, new_clients_per_month=3)
+
+annual_pior = expected_annual_faturamento_with_plano(
+    baseline_mrr=baseline_mrr,
+    months=12,
+    valor_plano_anual=GESTAO_OUTSIDE_PLANO_ANUAL,
+    new_clients_per_month=1,
+)
+annual_melhor = expected_annual_faturamento_with_plano(
+    baseline_mrr=baseline_mrr,
+    months=12,
+    valor_plano_anual=GESTAO_OUTSIDE_PLANO_ANUAL,
+    new_clients_per_month=3,
+)
 
 # -------------------------
 # Topo (logo + título)
@@ -777,3 +810,30 @@ st.caption(
     "Mensalidade por cliente vem de CONTRATOS (mrr_valor) filtrando contratos ativos. "
     "A previsão de MRR usa o MRR médio dos ativos e soma novos clientes por mês."
 )
+
+st.markdown("<div class='hr'></div>", unsafe_allow_html=True)
+st.subheader("Previsão de faturamento anual com Plano Gestão outside")
+st.write(
+    "Cenários para +12 meses com cliente de Plano Gestão outside (R$146.000/ano por cliente)."
+)
+
+df_annual = pd.DataFrame([
+    {
+        "Cenário": "Pior (1 cliente/mês)",
+        "Clientes novos em 12 meses": annual_pior["novos_clientes"],
+        "Incremento anual (R$)": annual_pior["incremento_anual"],
+        "Faturamento anual projetado (R$)": annual_pior["total_annual"],
+    },
+    {
+        "Cenário": "Melhor (3 clientes/mês)",
+        "Clientes novos em 12 meses": annual_melhor["novos_clientes"],
+        "Incremento anual (R$)": annual_melhor["incremento_anual"],
+        "Faturamento anual projetado (R$)": annual_melhor["total_annual"],
+    },
+])
+
+# aplicar formatação de moeda
+for col in ["Incremento anual (R$)", "Faturamento anual projetado (R$)"]:
+    df_annual[col] = df_annual[col].apply(brl)
+
+st.dataframe(df_annual, use_container_width=True, hide_index=True)
