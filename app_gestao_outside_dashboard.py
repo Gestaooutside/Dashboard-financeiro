@@ -519,14 +519,13 @@ def card(title: str, value: str, sub: str = ""):
 # -------------------------
 # KPIs (geral)
 # -------------------------
-r1 = st.columns(4)
+r1 = st.columns(3)
 r1[0].markdown(card("Recebido até agora", brl(total_recebido)), unsafe_allow_html=True)
-r1[1].markdown(card("Previsto a receber (total lançado)", brl(total_previsto_receber), "Pago + em aberto, conforme FATURAMENTO"), unsafe_allow_html=True)
-r1[2].markdown(card("Em aberto (a receber)", brl(total_em_aberto)), unsafe_allow_html=True)
-r1[3].markdown(card("MRR atual (soma das mensalidades)", brl(mrr_total)), unsafe_allow_html=True)
+r1[1].markdown(card("Em aberto (a receber)", brl(total_em_aberto)), unsafe_allow_html=True)
+r1[2].markdown(card("MRR atual (soma das mensalidades)", brl(mrr_total)), unsafe_allow_html=True)
 
 r1b = st.columns(1)
-r1b[0].markdown(card("Faturamento anual atual (MRR x 12)", brl(current_annual_faturamento)), unsafe_allow_html=True)
+r1b[0].markdown(card("Faturamento anual atual", brl(current_annual_faturamento)), unsafe_allow_html=True)
 
 st.markdown("<div class='hr'></div>", unsafe_allow_html=True)
 
@@ -825,25 +824,25 @@ df_annual = pd.DataFrame([
     {
         "Cenário": "Atual (sem mudança)",
         "Clientes novos em 12 meses": 0,
-        "Incremento anual (R$)": 0.0,
+        "Faturamento anual atual (R$)": current_annual_faturamento,
         "Faturamento anual projetado (R$)": current_annual_faturamento,
     },
     {
         "Cenário": "Pior (1 cliente/mês)",
         "Clientes novos em 12 meses": annual_pior["novos_clientes"],
-        "Incremento anual (R$)": annual_pior["incremento_anual"],
-        "Faturamento anual projetado (R$)": annual_pior["total_annual"],
+        "Faturamento anual atual (R$)": current_annual_faturamento,
+        "Faturamento anual projetado (R$)": current_annual_faturamento + annual_pior["incremento_anual"],
     },
     {
         "Cenário": "Melhor (3 clientes/mês)",
         "Clientes novos em 12 meses": annual_melhor["novos_clientes"],
-        "Incremento anual (R$)": annual_melhor["incremento_anual"],
-        "Faturamento anual projetado (R$)": annual_melhor["total_annual"],
+        "Faturamento anual atual (R$)": current_annual_faturamento,
+        "Faturamento anual projetado (R$)": current_annual_faturamento + annual_melhor["incremento_anual"],
     },
 ])
 
 # aplicar formatação de moeda
-for col in ["Incremento anual (R$)", "Faturamento anual projetado (R$)"]:
+for col in ["Faturamento anual atual (R$)", "Faturamento anual projetado (R$)"]:
     df_annual[col] = df_annual[col].apply(brl)
 
 st.dataframe(df_annual, use_container_width=True, hide_index=True)
