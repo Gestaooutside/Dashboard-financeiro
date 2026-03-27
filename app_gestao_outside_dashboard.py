@@ -20,7 +20,7 @@ try:
 except Exception:
     px = None
 
-DEFAULT_FILE = "controle_clientes_preenchido_com_recebidos_v5.xlsx"
+DEFAULT_FILE = "controle_clientes_atualizado_final.xlsx"
 ACCENT = "#FF9400"
 LOGO_PATH = "logogo.jpg"  # coloque esse arquivo na mesma pasta do app
 
@@ -252,6 +252,10 @@ def load_data(file_obj):
     faturamento = pd.read_excel(xls, "FATURAMENTO")
     pagamentos = pd.read_excel(xls, "PAGAMENTOS")
     params = pd.read_excel(xls, "PARAMETROS")
+
+    # Renomeia coluna sem nome de plano (vinda de Unnamed: 5) para "plano"
+    if "Unnamed: 5" in clientes.columns and "plano" not in clientes.columns:
+        clientes = clientes.rename(columns={"Unnamed: 5": "plano"})
 
     if "cliente_id" in clientes.columns:
         clientes = clientes.dropna(subset=["cliente_id"])
