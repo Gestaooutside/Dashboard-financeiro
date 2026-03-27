@@ -20,7 +20,7 @@ try:
 except Exception:
     px = None
 
-DEFAULT_FILE = "controle_clientes_preenchido_com_recebidos_v4.xlsx"
+DEFAULT_FILE = "controle_clientes_preenchido_com_recebidos_v5.xlsx"
 ACCENT = "#FF9400"
 LOGO_PATH = "logogo.jpg"  # coloque esse arquivo na mesma pasta do app
 
@@ -235,16 +235,17 @@ def parse_competencia_to_date(x):
 
 @st.cache_data(show_spinner=False)
 def load_data(file_obj):
-    # Handle string file paths (from DEFAULT_FILE) by opening them
+    # Handle string file paths or upload file-like objects
     if isinstance(file_obj, str):
+        if not os.path.exists(file_obj):
+            raise FileNotFoundError(f"Arquivo não encontrado: {file_obj}")
+        xls = pd.ExcelFile(file_obj)
+    else:
         try:
-            file_obj = open(file_obj, 'rb')
-        except FileNotFoundError:
-            st.error(f"❌ Arquivo não encontrado: {file_obj}")
-            st.info("Por favor, envie um arquivo Excel através do uploader.")
-            st.stop()
-    
-    xls = pd.ExcelFile(file_obj)
+            file_obj.seek(0)
+        except Exception:
+            pass
+        xls = pd.ExcelFile(file_obj)
 
     clientes = pd.read_excel(xls, "CLIENTES")
     contratos = pd.read_excel(xls, "CONTRATOS")
@@ -401,14 +402,30 @@ uploaded = st.sidebar.file_uploader(
     type=["xlsx"],
     help="Envie seu arquivo ou deixe vazio para usar controle_clientes_preenchido.xlsx no mesmo diretório.",
 )
-file_source = uploaded if uploaded is not None else DEFAULT_FILE
+
+if uploaded is not None:
+    file_source = uploaded
+elif os.path.exists(DEFAULT_FILE):
+    file_source = DEFAULT_FILE
+else:
+    st.sidebar.error(
+        f"❌ Arquivo padrão não encontrado: {DEFAULT_FILE}.\n"
+        "Por favor, envie um arquivo Excel através do uploader."
+    )
+    st.stop()
 
 horizon = st.sidebar.selectbox("Horizonte de projeção (meses)", [6, 12, 18, 24], index=1)
 
 # -------------------------
 # Dados
 # -------------------------
-clientes, contratos, faturamento, pagamentos, params = load_data(file_source)
+try:
+    clientes, contratos, faturamento, pagamentos, params = load_data(file_source)
+except FileNotFoundError as e:
+    st.error(f"❌ {e}")
+    st.info("Por favor, envie um arquivo Excel através do uploader.")
+    st.stop()
+
 margem = get_param_margem(params, default=0.45)
 fat = compute_received(faturamento, pagamentos)
 
